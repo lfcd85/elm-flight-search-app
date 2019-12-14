@@ -118,7 +118,7 @@ view model =
         , h1 [] [ text "旅行アプリを作りたい" ]
         , viewSession model.session
         , viewFetch model.fetch
-        , ul [] (List.map viewItinerary model.itineraries)
+        , ul [ class "itineraryWrapper" ] (List.map viewItinerary model.itineraries)
         ]
 
 
@@ -127,43 +127,45 @@ viewSession session =
     case session of
         FailureSession ->
             div []
-                [ text "セッションの取得に失敗しました。"
-                , button [ class "catButton", onClick MorePlease ] [ text "Try Again!" ]
-                ]
+                [ text "セッションの取得に失敗しました。" ]
 
         LoadingSession ->
-            div [ class "loading" ]
+            div [ class "label" ]
                 [ text "セッションを取得中..." ]
 
         SuccessSession url ->
-            div [ class "catWrapper" ]
-                [ button [ onClick MorePlease, class "catButton" ] [ text "まずセッションより始めよ" ]
-                , div [] [ text url ]
-                ]
+            div [] []
 
 
 viewFetch session =
     case session of
         FailureFetch ->
-            div [ class "loading" ]
+            div [ class "label" ]
                 [ text "結果の取得に失敗しました。" ]
 
         LoadingFetch ->
-            div [ class "loading" ]
+            div [ class "label" ]
                 [ text "結果を取得中..." ]
 
         WaitingFetch ->
-            div [ class "loading" ]
+            div [ class "label" ]
                 [ text "セッション取得後に結果取得が開始されます。" ]
 
         SuccessFetch ->
-            div [ class "loading" ]
-                [ text "結果の取得に成功しました！" ]
+            div [ class "label" ]
+                [ text "冬休みの東京 ⇔ ニューヨーク往復航空券のお値段" ]
 
 
 viewItinerary : Itinerary -> Html Msg
 viewItinerary itinerary =
-    li [] [ text <| String.fromFloat itinerary.price ]
+    li [ class "itineraryLink" ]
+        [ a
+            [ href itinerary.deeplinkUrl
+            , target "_blank"
+            , rel "noopener noreferrer"
+            ]
+            [ text <| String.fromFloat itinerary.price ++ " JPY" ]
+        ]
 
 
 
