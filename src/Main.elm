@@ -58,19 +58,13 @@ init =
 
 
 type Msg
-    = MorePlease
-    | GotSkyscannerSession (Result Http.Error String)
+    = GotSkyscannerSession (Result Http.Error String)
     | GotSkyscannerFetch (Result Http.Error (List Itinerary))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg ({ session } as model) =
     case msg of
-        MorePlease ->
-            ( { model | session = LoadingSession }
-            , getFlightSearchSession
-            )
-
         GotSkyscannerSession result ->
             case result of
                 Ok url ->
