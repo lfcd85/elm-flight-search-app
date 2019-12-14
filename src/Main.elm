@@ -1,24 +1,26 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, div, h1, img, text)
-import Html.Attributes exposing (src)
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Events exposing (..)
+import Http
+import Json.Decode exposing (Decoder, field, string)
 
 
 
 ---- MODEL ----
 
 
-type alias Model =
-    { description : String
-    }
+type Model
+    = Failure
+    | Loading
+    | Success String
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { description = "旅行アプリを作りたい" }
-    , Cmd.none
-    )
+    ( Loading, getRandomCatGif )
 
 
 
@@ -26,12 +28,32 @@ init =
 
 
 type Msg
-    = NoOp
+    = MorePlease
+    | GotGif (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        MorePlease ->
+            ( Loading, getRandomCatGif )
+
+        GotGif result ->
+            case result of
+                Ok url ->
+                    ( Success url, Cmd.none )
+
+                Err _ ->
+                    ( Failure, Cmd.none )
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
 
 
 
@@ -42,8 +64,45 @@ view : Model -> Html Msg
 view model =
     div []
         [ img [ src "/logo.svg" ] []
-        , h1 [] [ text model.description ]
+        , h1 [] [ text "旅行アプリを作りたい" ]
+        , viewGif model
         ]
+
+
+viewGif : Model -> Html Msg
+viewGif model =
+    case model of
+        Failure ->
+            div []
+                [ text "猫の取得に失敗しました。"
+                , button [ onClick MorePlease ] [ text "Try Again!" ]
+                ]
+
+        Loading ->
+            text "Loading..."
+
+        Success url ->
+            div []
+                [ button [ onClick MorePlease, style "display" "block" ] [ text "まず猫より始めよ" ]
+                , img [ src url ] []
+                ]
+
+
+
+-- HTTP
+
+
+getRandomCatGif : Cmd Msg
+getRandomCatGif =
+    Http.get
+        { url = "https://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=cat"
+        , expect = Http.expectJson GotGif gifDecoder
+        }
+
+
+gifDecoder : Decoder String
+gifDecoder =
+    field "data" (field "image_url" string)
 
 
 
