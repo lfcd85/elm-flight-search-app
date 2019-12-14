@@ -1,11 +1,14 @@
 module Main exposing (..)
 
 import Browser
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode exposing (Decoder, field, string)
+import String
+import Url.Builder
 
 
 
@@ -13,14 +16,14 @@ import Json.Decode exposing (Decoder, field, string)
 
 
 type Model
-    = Failure
-    | Loading
-    | Success String
+    = FailureSession
+    | LoadingSession
+    | SuccessSession String
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Loading, getRandomCatGif )
+    ( LoadingSession, getFlightSearchSession )
 
 
 
@@ -29,22 +32,22 @@ init =
 
 type Msg
     = MorePlease
-    | GotGif (Result Http.Error String)
+    | GotSkyscannerSession (Result Http.Error String)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         MorePlease ->
-            ( Loading, getRandomCatGif )
+            ( LoadingSession, getFlightSearchSession )
 
-        GotGif result ->
+        GotSkyscannerSession result ->
             case result of
                 Ok url ->
-                    ( Success url, Cmd.none )
+                    ( SuccessSession url, Cmd.none )
 
                 Err _ ->
-                    ( Failure, Cmd.none )
+                    ( FailureSession, Cmd.none )
 
 
 
@@ -65,27 +68,27 @@ view model =
     div []
         [ img [ src "/logo.svg" ] []
         , h1 [] [ text "旅行アプリを作りたい" ]
-        , viewGif model
+        , viewSession model
         ]
 
 
-viewGif : Model -> Html Msg
-viewGif model =
+viewSession : Model -> Html Msg
+viewSession model =
     case model of
-        Failure ->
+        FailureSession ->
             div []
-                [ text "猫の取得に失敗しました。"
+                [ text "セッションの取得に失敗しました。"
                 , button [ class "catButton", onClick MorePlease ] [ text "Try Again!" ]
                 ]
 
-        Loading ->
+        LoadingSession ->
             div [ class "loading" ]
                 [ text "Loading..." ]
 
-        Success url ->
+        SuccessSession url ->
             div [ class "catWrapper" ]
-                [ button [ onClick MorePlease, class "catButton" ] [ text "まず猫より始めよ" ]
-                , img [ src url ] []
+                [ button [ onClick MorePlease, class "catButton" ] [ text "まずセッションより始めよ" ]
+                , div [] [ text url ]
                 ]
 
 
@@ -93,17 +96,64 @@ viewGif model =
 -- HTTP
 
 
-getRandomCatGif : Cmd Msg
-getRandomCatGif =
-    Http.get
-        { url = "https://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=cat"
-        , expect = Http.expectJson GotGif gifDecoder
+getFlightSearchSession : Cmd Msg
+getFlightSearchSession =
+    Http.request
+        { method = "POST"
+        , headers =
+            [ Http.header "x-rapidapi-host" "skyscanner-skyscanner-flight-search-v1.p.rapidapi.com"
+            , Http.header "x-rapidapi-key" "SECRET KEY"
+            ]
+        , url = "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/pricing/v1.0"
+        , body =
+            Http.stringBody "application/x-www-form-urlencoded"
+                (String.dropLeft 1
+                    (Url.Builder.toQuery
+                        [ Url.Builder.string "inboundDate" "2020-01-05"
+                        , Url.Builder.string "children" "0"
+                        , Url.Builder.string "infants" "0"
+                        , Url.Builder.string "country" "JP"
+                        , Url.Builder.string "currency" "JPY"
+                        , Url.Builder.string "locale" "ja-JP"
+                        , Url.Builder.string "originPlace" "TYOA-sky"
+                        , Url.Builder.string "destinationPlace" "NYCA-sky"
+                        , Url.Builder.string "outboundDate" "2019-12-28"
+                        , Url.Builder.string "adults" "1"
+                        ]
+                    )
+                )
+        , expect = expectJson GotSkyscannerSession sessionDecoder
+        , timeout = Nothing
+        , tracker = Nothing
         }
 
 
-gifDecoder : Decoder String
-gifDecoder =
-    field "data" (field "image_url" string)
+expectJson : (Result Http.Error String -> msg) -> Decoder a -> Http.Expect msg
+expectJson toMsg decoder =
+    Http.expectStringResponse toMsg <|
+        \response ->
+            case response of
+                Http.BadUrl_ url ->
+                    Err (Http.BadUrl url)
+
+                Http.Timeout_ ->
+                    Err Http.Timeout
+
+                Http.NetworkError_ ->
+                    Err Http.NetworkError
+
+                Http.BadStatus_ metadata body ->
+                    Err (Http.BadStatus metadata.statusCode)
+
+                Http.GoodStatus_ metadata body ->
+                    metadata.headers
+                        |> Dict.get "location"
+                        |> Result.fromMaybe (Http.BadStatus 403)
+
+
+sessionDecoder : Decoder String
+sessionDecoder =
+    field "location" string
 
 
 
