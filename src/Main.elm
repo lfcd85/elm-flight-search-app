@@ -6,7 +6,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
-import Json.Decode exposing (Decoder, field, string)
+import Json.Decode exposing (Decoder, at, field)
 import List
 import Maybe
 import String
@@ -31,7 +31,7 @@ type Fetch
 
 
 type alias Itinerary =
-    { price : String
+    { price : Float
     , deeplinkUrl : String
     }
 
@@ -117,6 +117,7 @@ view model =
         [ img [ src "/logo.svg" ] []
         , h1 [] [ text "旅行アプリを作りたい" ]
         , viewSession model.session
+        , viewFetch model.fetch
         , ul [] (List.map viewItinerary model.itineraries)
         ]
 
@@ -132,7 +133,7 @@ viewSession session =
 
         LoadingSession ->
             div [ class "loading" ]
-                [ text "Loading..." ]
+                [ text "セッションを取得中..." ]
 
         SuccessSession url ->
             div [ class "catWrapper" ]
@@ -141,9 +142,28 @@ viewSession session =
                 ]
 
 
+viewFetch session =
+    case session of
+        FailureFetch ->
+            div [ class "loading" ]
+                [ text "結果の取得に失敗しました。" ]
+
+        LoadingFetch ->
+            div [ class "loading" ]
+                [ text "結果を取得中..." ]
+
+        WaitingFetch ->
+            div [ class "loading" ]
+                [ text "セッション取得後に結果取得が開始されます。" ]
+
+        SuccessFetch ->
+            div [ class "loading" ]
+                [ text "結果の取得に成功しました！" ]
+
+
 viewItinerary : Itinerary -> Html Msg
 viewItinerary itinerary =
-    li [] [ text itinerary.price ]
+    li [] [ text <| String.fromFloat itinerary.price ]
 
 
 
@@ -156,7 +176,7 @@ getFlightSearchSession =
         { method = "POST"
         , headers =
             [ Http.header "x-rapidapi-host" "skyscanner-skyscanner-flight-search-v1.p.rapidapi.com"
-            , Http.header "x-rapidapi-key" "SECRET KEY"
+            , Http.header "x-rapidapi-key" "MY SUPER SECRET KEY"
             ]
         , url = "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/pricing/v1.0"
         , body =
@@ -176,14 +196,14 @@ getFlightSearchSession =
                         ]
                     )
                 )
-        , expect = expectJson GotSkyscannerSession sessionDecoder
+        , expect = expectResponseHeader GotSkyscannerSession sessionDecoder
         , timeout = Nothing
         , tracker = Nothing
         }
 
 
-expectJson : (Result Http.Error String -> msg) -> Decoder a -> Http.Expect msg
-expectJson toMsg decoder =
+expectResponseHeader : (Result Http.Error String -> msg) -> Decoder a -> Http.Expect msg
+expectResponseHeader toMsg decoder =
     Http.expectStringResponse toMsg <|
         \response ->
             case response of
@@ -207,7 +227,7 @@ expectJson toMsg decoder =
 
 sessionDecoder : Decoder String
 sessionDecoder =
-    field "location" string
+    field "location" Json.Decode.string
 
 
 getFlightSearchFetch : String -> Cmd Msg
@@ -216,13 +236,13 @@ getFlightSearchFetch url =
         { method = "GET"
         , headers =
             [ Http.header "x-rapidapi-host" "skyscanner-skyscanner-flight-search-v1.p.rapidapi.com"
-            , Http.header "x-rapidapi-key" "SECRET KEY"
+            , Http.header "x-rapidapi-key" "MY SUPER SECRET KEY"
             ]
         , url =
             Url.Builder.crossOrigin
                 "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/pricing/uk2/v1.0"
                 [ Maybe.withDefault "" (String.split "/" url |> List.reverse |> List.head) ]
-                []
+                [ Url.Builder.int "pageIndex" 0, Url.Builder.int "pageSize" 20 ]
         , body = Http.emptyBody
         , expect = Http.expectJson GotSkyscannerFetch itinerariesDecoder
         , timeout = Nothing
@@ -232,14 +252,14 @@ getFlightSearchFetch url =
 
 itinerariesDecoder : Decoder (List Itinerary)
 itinerariesDecoder =
-    Json.Decode.list itineraryDecoder
+    field "Itineraries" (Json.Decode.list itineraryDecoder)
 
 
 itineraryDecoder : Decoder Itinerary
 itineraryDecoder =
     Json.Decode.map2 Itinerary
-        (field "price" string)
-        (field "deeplinkUrl" string)
+        (at [ "PricingOptions", "0", "Price" ] Json.Decode.float)
+        (at [ "PricingOptions", "0", "DeeplinkUrl" ] Json.Decode.string)
 
 
 
