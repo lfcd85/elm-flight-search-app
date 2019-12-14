@@ -37,8 +37,7 @@ type alias Itinerary =
 
 
 type alias Model =
-    { fetchUrl : String
-    , session : Session
+    { session : Session
     , fetch : Fetch
     , itineraries : List Itinerary
     }
@@ -46,8 +45,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { fetchUrl = ""
-      , session = LoadingSession
+    ( { session = LoadingSession
       , fetch = WaitingFetch
       , itineraries = []
       }
@@ -76,7 +74,7 @@ update msg ({ session } as model) =
         GotSkyscannerSession result ->
             case result of
                 Ok url ->
-                    ( { model | session = SuccessSession url, fetchUrl = url }
+                    ( { model | session = SuccessSession url }
                     , getFlightSearchFetch url
                     )
 
