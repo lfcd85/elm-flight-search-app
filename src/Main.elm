@@ -7,6 +7,8 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
 import Json.Decode exposing (Decoder, field, string)
+import List
+import Maybe
 import String
 import Url.Builder
 
@@ -21,15 +23,36 @@ type Session
     | SuccessSession String
 
 
+type Fetch
+    = FailureFetch
+    | LoadingFetch
+    | WaitingFetch
+    | SuccessFetch
+
+
+type alias Itinerary =
+    { price : String
+    , deeplinkUrl : String
+    }
+
+
 type alias Model =
-    { resultUrl : String
+    { fetchUrl : String
     , session : Session
+    , fetch : Fetch
+    , itineraries : List Itinerary
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { resultUrl = "", session = LoadingSession }, getFlightSearchSession )
+    ( { fetchUrl = ""
+      , session = LoadingSession
+      , fetch = WaitingFetch
+      , itineraries = []
+      }
+    , getFlightSearchSession
+    )
 
 
 
@@ -39,6 +62,7 @@ init =
 type Msg
     = MorePlease
     | GotSkyscannerSession (Result Http.Error String)
+    | GotSkyscannerFetch (Result Http.Error (List Itinerary))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -52,12 +76,24 @@ update msg ({ session } as model) =
         GotSkyscannerSession result ->
             case result of
                 Ok url ->
-                    ( { model | session = SuccessSession url, resultUrl = url }
-                    , Cmd.none
+                    ( { model | session = SuccessSession url, fetchUrl = url }
+                    , getFlightSearchFetch url
                     )
 
                 Err _ ->
                     ( { model | session = FailureSession }
+                    , Cmd.none
+                    )
+
+        GotSkyscannerFetch result ->
+            case result of
+                Ok itineraries ->
+                    ( { model | fetch = SuccessFetch, itineraries = itineraries }
+                    , Cmd.none
+                    )
+
+                Err _ ->
+                    ( { model | fetch = FailureFetch }
                     , Cmd.none
                     )
 
@@ -81,6 +117,7 @@ view model =
         [ img [ src "/logo.svg" ] []
         , h1 [] [ text "旅行アプリを作りたい" ]
         , viewSession model.session
+        , ul [] (List.map viewItinerary model.itineraries)
         ]
 
 
@@ -102,6 +139,11 @@ viewSession session =
                 [ button [ onClick MorePlease, class "catButton" ] [ text "まずセッションより始めよ" ]
                 , div [] [ text url ]
                 ]
+
+
+viewItinerary : Itinerary -> Html Msg
+viewItinerary itinerary =
+    li [] [ text itinerary.price ]
 
 
 
@@ -166,6 +208,38 @@ expectJson toMsg decoder =
 sessionDecoder : Decoder String
 sessionDecoder =
     field "location" string
+
+
+getFlightSearchFetch : String -> Cmd Msg
+getFlightSearchFetch url =
+    Http.request
+        { method = "GET"
+        , headers =
+            [ Http.header "x-rapidapi-host" "skyscanner-skyscanner-flight-search-v1.p.rapidapi.com"
+            , Http.header "x-rapidapi-key" "SECRET KEY"
+            ]
+        , url =
+            Url.Builder.crossOrigin
+                "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/pricing/uk2/v1.0"
+                [ Maybe.withDefault "" (String.split "/" url |> List.reverse |> List.head) ]
+                []
+        , body = Http.emptyBody
+        , expect = Http.expectJson GotSkyscannerFetch itinerariesDecoder
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+itinerariesDecoder : Decoder (List Itinerary)
+itinerariesDecoder =
+    Json.Decode.list itineraryDecoder
+
+
+itineraryDecoder : Decoder Itinerary
+itineraryDecoder =
+    Json.Decode.map2 Itinerary
+        (field "price" string)
+        (field "deeplinkUrl" string)
 
 
 
