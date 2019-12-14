@@ -75,15 +75,16 @@ viewGif model =
         Failure ->
             div []
                 [ text "猫の取得に失敗しました。"
-                , button [ onClick MorePlease ] [ text "Try Again!" ]
+                , button [ class "catButton", onClick MorePlease ] [ text "Try Again!" ]
                 ]
 
         Loading ->
-            text "Loading..."
+            div [ class "loading" ]
+                [ text "Loading..." ]
 
         Success url ->
-            div []
-                [ button [ onClick MorePlease, style "display" "block" ] [ text "まず猫より始めよ" ]
+            div [ class "catWrapper" ]
+                [ button [ onClick MorePlease, class "catButton" ] [ text "まず猫より始めよ" ]
                 , img [ src url ] []
                 ]
 
