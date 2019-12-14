@@ -1,20 +1,24 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (Html, text, div, h1, img)
+import Html exposing (Html, div, h1, img, text)
 import Html.Attributes exposing (src)
+
 
 
 ---- MODEL ----
 
 
 type alias Model =
-    {}
+    { description : String
+    }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( {}, Cmd.none )
+    ( { description = "旅行アプリを作りたい" }
+    , Cmd.none
+    )
 
 
 
@@ -38,7 +42,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ img [ src "/logo.svg" ] []
-        , h1 [] [ text "Your Elm App is working!" ]
+        , h1 [] [ text model.description ]
         ]
 
 
