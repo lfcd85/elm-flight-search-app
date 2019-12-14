@@ -15,15 +15,21 @@ import Url.Builder
 ---- MODEL ----
 
 
-type Model
+type Session
     = FailureSession
     | LoadingSession
     | SuccessSession String
 
 
+type alias Model =
+    { resultUrl : String
+    , session : Session
+    }
+
+
 init : ( Model, Cmd Msg )
 init =
-    ( LoadingSession, getFlightSearchSession )
+    ( { resultUrl = "", session = LoadingSession }, getFlightSearchSession )
 
 
 
@@ -36,18 +42,24 @@ type Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update msg ({ session } as model) =
     case msg of
         MorePlease ->
-            ( LoadingSession, getFlightSearchSession )
+            ( { model | session = LoadingSession }
+            , getFlightSearchSession
+            )
 
         GotSkyscannerSession result ->
             case result of
                 Ok url ->
-                    ( SuccessSession url, Cmd.none )
+                    ( { model | session = SuccessSession url, resultUrl = url }
+                    , Cmd.none
+                    )
 
                 Err _ ->
-                    ( FailureSession, Cmd.none )
+                    ( { model | session = FailureSession }
+                    , Cmd.none
+                    )
 
 
 
@@ -68,13 +80,13 @@ view model =
     div []
         [ img [ src "/logo.svg" ] []
         , h1 [] [ text "旅行アプリを作りたい" ]
-        , viewSession model
+        , viewSession model.session
         ]
 
 
-viewSession : Model -> Html Msg
-viewSession model =
-    case model of
+viewSession : Session -> Html Msg
+viewSession session =
+    case session of
         FailureSession ->
             div []
                 [ text "セッションの取得に失敗しました。"
