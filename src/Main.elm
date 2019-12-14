@@ -63,7 +63,7 @@ type Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ({ session } as model) =
+update msg model =
     case msg of
         GotSkyscannerSession result ->
             case result of
